@@ -1,0 +1,19 @@
+{
+    "name": "a.pitis/4developers",
+    "require": {
+        "broadway/broadway": "^1.0",
+        "ramsey/uuid": "^3.6",
+        "eloquent/enumeration": "^5.1"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Alexandru Pitis",
+            "email": "alexandru.pitis@blablacar.com"
+        }
+    ],
+    "require-dev": {
+        "phpspec/phpspec": "^3.2",
+        "memio/spec-gen": "^0.6.2"
+    }
+}
