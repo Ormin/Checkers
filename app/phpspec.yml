@@ -1,2 +1,3 @@
 extensions:
-  - Memio\SpecGen\MemioSpecGenExtension
+  Memio\SpecGen\MemioSpecGenExtension: 
+  Apitis\Spec\DomainEventsExtension:

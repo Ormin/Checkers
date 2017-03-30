@@ -64,20 +64,22 @@ class Game extends EventSourcedAggregateRoot
             if($this->whitesPlayer !== null) {
                 throw new GameIsFullException();
             } else {
-                $this->joinAsWhite($player);
+                $color = $this->joinAsWhite($player);
             }
         } else {
 
             if($this->whitesPlayer !== null) {
-                $this->joinAsBlack($player);
-            }
-
-            if(rand(1,100) <= 50) {
-                $this->joinAsBlack($player);
+                $color = $this->joinAsBlack($player);
             } else {
-                $this->joinAsWhite($player);
+                if (rand(1, 100) <= 50) {
+                    $color = $this->joinAsBlack($player);
+                } else {
+                    $color = $this->joinAsWhite($player);
+                }
             }
         }
+
+        return $color;
 
     }
 
@@ -95,6 +97,8 @@ class Game extends EventSourcedAggregateRoot
 
         $this->apply(new PlayerJoinedAGame($this->gameId, $player, Color::WHITE()));
         $this->tryToStart();
+
+        return Color::WHITE();
     }
 
     private function joinAsBlack(Player $player)
@@ -111,6 +115,8 @@ class Game extends EventSourcedAggregateRoot
 
         $this->apply(new PlayerJoinedAGame($this->gameId, $player, Color::BLACK()));
         $this->tryToStart();
+
+        return Color::BLACK();
 
     }
 

@@ -15,5 +15,8 @@
     "require-dev": {
         "phpspec/phpspec": "^3.2",
         "memio/spec-gen": "^0.6.2"
+    },
+    "autoload": {
+        "psr-0": {"": "src/"}
     }
 }
