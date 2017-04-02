@@ -3,9 +3,13 @@
 namespace Apitis\Checkers\Domain\Contexts\Game\Entity;
 
 
-use Apitis\Checkers\Domain\Contexts\Game\Entity\Identifiers\GameId;
-use Apitis\Checkers\Domain\Contexts\Game\Event\GameStarted;
-use Apitis\Checkers\Domain\Contexts\Game\Exception\IllegalStateException;
+use Apitis\Checkers\Domain\Contexts\Creation\Event\TurnEnded;
+use Apitis\Checkers\Domain\Contexts\Game\Policy\Rules;
+use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Move;
+use Apitis\Checkers\Domain\Shared\Exception\IllegalStateException;
+use Apitis\Checkers\Domain\Shared\Exception\WrongPlayersTurnException;
+use Apitis\Checkers\Domain\Shared\Identifiers\GameId;
+use Apitis\Checkers\Domain\Shared\ValueObject\Coordinates;
 use Broadway\EventSourcing\EventSourcedAggregateRoot;
 
 class Game extends EventSourcedAggregateRoot
@@ -19,37 +23,53 @@ class Game extends EventSourcedAggregateRoot
     /**
      * @var Player
      */
-    private $whitesPlayer;
+    private $firstPlayer;
 
     /**
      * @var Player
      */
-    private $blacksPlayer;
-    
-    public function __construct(GameId $gameId, Player $whitesPlayer, Player $blacksPlayer)
+    private $secondPlayer;
+
+    /**
+     * @var Player
+     */
+    private $currentPlayer;
+
+    /**
+     * @var Board
+     */
+    private $board;
+
+    /**
+     * Construct a game.
+     * Current player provided has be either the whites player or the blacks player
+     * @param GameId $gameId
+     * @param Player $firstPlayer
+     * @param Player $secondPlayer
+     * @param Player $currentPlayer
+     * @param Board $board
+     * @throws IllegalStateException
+     */
+    public function __construct(GameId $gameId,
+                                Player $firstPlayer,
+                                Player $secondPlayer,
+                                Player $currentPlayer,
+                                Board $board)
     {
         $this->gameId = $gameId;
         
-        if($whitesPlayer === $blacksPlayer) {
+        if($firstPlayer === $secondPlayer) {
             throw new IllegalStateException("One player cannot both play black and whites.");
         }
-        
-        $this->whitesPlayer = $whitesPlayer;
-        $this->blacksPlayer = $blacksPlayer;
-    }
 
-    public static function create(Player $playerOne, Player $playerTwo)
-    {
-        $whitesPlayer = (rand(1,100) <= 50) ? $playerOne : $playerTwo;
-        if($whitesPlayer === $playerOne) {
-            $blacksPlayer = $playerTwo;
-        } else {
-            $blacksPlayer = $playerOne;
+        if($currentPlayer != $firstPlayer && $currentPlayer != $secondPlayer) {
+            throw new IllegalStateException("Current game player must be one of the game players.");
         }
 
-        $gameId = GameId::create();
-        $game = new Game($gameId, $whitesPlayer, $blacksPlayer);
-        $game->apply(new GameStarted($gameId, $whitesPlayer, $blacksPlayer));
+        $this->firstPlayer = $firstPlayer;
+        $this->secondPlayer = $secondPlayer;
+        $this->currentPlayer = $currentPlayer;
+        $this->board = $board;
     }
 
     public function getAggregateRootId()
@@ -57,5 +77,24 @@ class Game extends EventSourcedAggregateRoot
         return $this->gameId;
     }
 
+    public function performMove(Move $move)
+    {
+        $canDoMoreMoves = $this->currentPlayer->move($this->gameId, $this->board, $move);
+
+        if(!$canDoMoreMoves) {
+            $this->apply(new TurnEnded($this->gameId, $this->currentPlayer));
+        }
+    }
+
+    protected function applyTurnEndedEvent(TurnEnded $event)
+    {
+        if($this->currentPlayer === $this->firstPlayer) {
+            $newCurrentPlayer = $this->secondPlayer;
+        } else {
+            $newCurrentPlayer = $this->firstPlayer;
+        }
+
+        $this->currentPlayer = $newCurrentPlayer;
+    }
 
 }

@@ -68,10 +68,22 @@ class EventsMatcher extends BasicMatcher
      */
     protected function getFailureException($name, $subject, array $arguments)
     {
+
+        $subjectEvents = "";
+        $argumentEvents = "";
+
+        foreach($subject->getIterator() as $event) {
+            $subjectEvents .= $this->presenter->presentValue($event->getPayload());
+        }
+
+        foreach($arguments as $event) {
+            $argumentEvents .= $this->presenter->presentValue($event);
+        }
+
         return new FailureException(sprintf(
-            'Expected %s to record events %s, but it does not.',
-            $this->presenter->presentValue($subject),
-            $this->presenter->presentValue($arguments)
+            'Events occured do not match expectations. Should be: %s, but is: %s',
+            $argumentEvents,
+            $subjectEvents
         ));
     }
 

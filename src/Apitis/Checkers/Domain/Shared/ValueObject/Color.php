@@ -18,4 +18,17 @@ class Color extends AbstractEnumeration
 
     const BLACK = 'Black';
 
+    public function getOpposedColor()
+    {
+        switch($this) {
+            case Color::WHITE(): {
+                return Color::BLACK();
+            }
+
+            case Color::BLACK(): {
+                return Color::WHITE();
+            }
+        }
+    }
+
 }

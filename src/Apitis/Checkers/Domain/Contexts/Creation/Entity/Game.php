@@ -71,11 +71,7 @@ class Game extends EventSourcedAggregateRoot
             if($this->whitesPlayer !== null) {
                 $color = $this->joinAsBlack($player);
             } else {
-                if (rand(1, 100) <= 50) {
-                    $color = $this->joinAsBlack($player);
-                } else {
-                    $color = $this->joinAsWhite($player);
-                }
+                $color = $this->joinAsWhite($player);
             }
         }
 

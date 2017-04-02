@@ -5,7 +5,7 @@ namespace Apitis\Checkers\Domain\Shared\Identifiers;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
-class GameId
+class PlayerId
 {
 
     /**
@@ -14,7 +14,7 @@ class GameId
     private $value;
 
     /**
-     * GameId constructor.
+     * PlayerId constructor.
      * @param UuidInterface $value
      */
     public function __construct(UuidInterface $value)
@@ -24,10 +24,10 @@ class GameId
 
     public static function create()
     {
-        return new GameId(Uuid::uuid4());
+        return new PlayerId(Uuid::uuid4());
     }
 
-    public function equals(GameId $gameId)
+    public function equals(PlayerId $gameId)
     {
         return $this->value->equals($gameId->value);
     }
