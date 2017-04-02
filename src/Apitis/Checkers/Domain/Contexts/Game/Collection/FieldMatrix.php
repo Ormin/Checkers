@@ -10,6 +10,7 @@ namespace Apitis\Checkers\Domain\Contexts\Game\Collection;
 
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Field;
 use Apitis\Checkers\Domain\Shared\Exception\FieldDoesNotExistException;
+use Apitis\Checkers\Domain\Shared\ValueObject\Color;
 use Apitis\Checkers\Domain\Shared\ValueObject\Coordinates;
 
 class FieldMatrix
@@ -20,6 +21,7 @@ class FieldMatrix
      */
     private $fields;
 
+    private $piecesCounts = [];
 
     public function addField(Coordinates $coordinates, Field $field)
     {
@@ -27,7 +29,12 @@ class FieldMatrix
             $this->fields[$coordinates->getX()] = [];
         }
 
+        if(!isset($this->piecesCounts[$field->getPiecesColor()->value()])) {
+            $this->piecesCounts[$field->getPiecesColor()->value()] = 0;
+        }
+
         $this->fields[$coordinates->getX()][$coordinates->getY()] = $field;
+        $this->piecesCounts[$field->getPiecesColor()->value()]++;
     }
 
     /**
@@ -61,6 +68,15 @@ class FieldMatrix
         }
 
         return $this->fields[$coordinates->getX()][$coordinates->getY()]->hasPiece();
+    }
+
+    public function hasPiecesOfColorLeft(Color $color)
+    {
+        if(!isset($this->piecesCounts[$color->value()])) {
+            return false;
+        }
+
+        return ($this->piecesCounts[$color->value()] > 0);
     }
 
 }

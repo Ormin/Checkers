@@ -3,13 +3,12 @@
 namespace Apitis\Checkers\Domain\Contexts\Game\Entity;
 
 
+use Apitis\Checkers\Domain\Contexts\Game\Event\GameFinished;
 use Apitis\Checkers\Domain\Contexts\Game\Event\TurnEnded;
 use Apitis\Checkers\Domain\Contexts\Game\Policy\Rules;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Move;
 use Apitis\Checkers\Domain\Shared\Exception\IllegalStateException;
-use Apitis\Checkers\Domain\Shared\Exception\WrongPlayersTurnException;
 use Apitis\Checkers\Domain\Shared\Identifiers\GameId;
-use Apitis\Checkers\Domain\Shared\ValueObject\Coordinates;
 use Broadway\EventSourcing\EventSourcedAggregateRoot;
 
 class Game extends EventSourcedAggregateRoot
@@ -79,10 +78,15 @@ class Game extends EventSourcedAggregateRoot
 
     public function performMove(Move $move)
     {
-        $capturedPieces = $this->currentPlayer->move($this->gameId, $this->board, $move);
+        $thisTurnPlayer = $this->currentPlayer;
+        $capturedPieces = $thisTurnPlayer->move($this->gameId, $this->board, $move);
 
         if(!$capturedPieces->moreThanZero()) {
-            $this->apply(new TurnEnded($this->gameId, $this->currentPlayer));
+            $this->apply(new TurnEnded($this->gameId, $thisTurnPlayer));
+        }
+
+        if(!$this->board->hasPiecesOfColorLeft($this->currentPlayer->getPlayingAsColor())) {
+             $this->apply(new GameFinished($this->gameId, $thisTurnPlayer, $this->currentPlayer));
         }
     }
 
@@ -96,5 +100,11 @@ class Game extends EventSourcedAggregateRoot
 
         $this->currentPlayer = $newCurrentPlayer;
     }
+
+    protected function getChildEntities()
+    {
+        return [$this->board];
+    }
+
 
 }

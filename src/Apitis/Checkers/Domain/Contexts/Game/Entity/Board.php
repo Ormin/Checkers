@@ -3,7 +3,8 @@
 namespace Apitis\Checkers\Domain\Contexts\Game\Entity;
 
 
-use Apitis\Checkers\Domain\Contexts\Creation\Event\MovePerformed;
+use Apitis\Checkers\Domain\Contexts\Game\Event\GameFinished;
+use Apitis\Checkers\Domain\Contexts\Game\Event\MovePerformed;
 use Apitis\Checkers\Domain\Contexts\Game\Collection\CapturedPieces;
 use Apitis\Checkers\Domain\Contexts\Game\Collection\FieldMatrix;
 use Apitis\Checkers\Domain\Contexts\Game\Collection\Exception\NoPieceOnFieldException;
@@ -77,6 +78,28 @@ class Board extends SimpleEventSourcedEntity
 
         return $capturedPieces;
     }
+
+    protected function applyMovePerformedEvent(MovePerformed $event)
+    {
+        $move = $event->getMove();
+        $piece = $this->fields->getField($move->getFrom())->pickPieceUp();
+        $moveToField = $this->fields->getField($move->getTo());
+        $moveToField->putPieceDown($piece);
+
+        foreach($event->getCapturedPieces()->getIterator()
+                as $capturedPiece)
+        {
+            //Remove piece from the board
+            $this->fields->getField($capturedPiece)->pickPieceUp();
+        }
+
+    }
+
+    public function hasPiecesOfColorLeft(Color $color)
+    {
+        return $this->fields->hasPiecesOfColorLeft($color);
+    }
+
 
     private function hasCaptureMove(Coordinates $coordinates)
     {
@@ -271,15 +294,6 @@ class Board extends SimpleEventSourcedEntity
         return false; //Should never be reached
     }
 
-    protected function applyMovePerformedEvent(MovePerformed $event)
-    {
-        $move = $event->getMove();
-        $piece = $this->fields->getField($move->getFrom())->pickUp();
-        $moveToField = $this->fields->getField($move->getTo());
-        $moveToField->putDown($piece);
-    }
-
-
     /**
      * Get the color of the piece on given coordinate
      * @param Coordinates $on
@@ -324,7 +338,7 @@ class Board extends SimpleEventSourcedEntity
         }
 
         for($i = $rules->getBoardLength(); $i > ($rules->getBoardLength() - $numberOfRows); --$i) {
-            self::addRowOfPieces($rules, $fields, $i, Color::BLACK());
+           self::addRowOfPieces($rules, $fields, $i, Color::BLACK());
         }
 
         return new Board($rules->getBoardLength(), $fields, $rules);
@@ -339,11 +353,15 @@ class Board extends SimpleEventSourcedEntity
             $startingX = 1;
         }
 
+        $numberOfPieces = 0;
         for(; $startingX <= $rules->getBoardLength(); $startingX = $startingX + 2) {
             $field = new Field();
             $fields->addField(new CartesianCoordinates($startingX, $rowNumber), $field);
             $piece = new Piece($color);
-            $field->putDown($piece);
+            $field->putPieceDown($piece);
+            ++$numberOfPieces;
         }
+
+        return $numberOfPieces;
     }
 }

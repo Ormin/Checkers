@@ -29,7 +29,7 @@ class Field
      * @return Piece
      * @throws CannotPickPieceException
      */
-    public function pickUp()
+    public function pickPieceUp()
     {
         if(!$this->hasPiece()) {
             throw new CannotPickPieceException();
@@ -40,7 +40,7 @@ class Field
         return $piece;
     }
 
-    public function putDown(Piece $piece)
+    public function putPieceDown(Piece $piece)
     {
         if($this->hasPiece()) {
             throw new CannotPutPieceException();

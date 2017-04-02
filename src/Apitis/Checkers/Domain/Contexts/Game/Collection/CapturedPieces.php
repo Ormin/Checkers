@@ -27,6 +27,9 @@ class CapturedPieces implements \IteratorAggregate
         $this->pieces = $pieces;
     }
 
+    /**
+     * @return CapturedPiece[]
+     */
     public function getIterator()
     {
         return new \ArrayIterator($this->pieces);
