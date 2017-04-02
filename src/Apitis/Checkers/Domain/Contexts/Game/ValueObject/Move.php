@@ -11,7 +11,7 @@ namespace Apitis\Checkers\Domain\Contexts\Game\ValueObject;
 use Apitis\Checkers\Domain\Shared\Exception\IllegalMoveException;
 use Apitis\Checkers\Domain\Shared\ValueObject\Coordinates;
 
-class Move
+class Move implements \IteratorAggregate
 {
 
     /**
@@ -62,6 +62,11 @@ class Move
         return $this->to;
     }
 
+    public function direction()
+    {
+        return $this->from->direction($this->to);
+    }
+
     public function getDistance()
     {
         $minX = min($this->from->getX(), $this->to->getX());
@@ -74,5 +79,11 @@ class Move
 
         return max($distX, $distY);
     }
+
+    public function getIterator()
+    {
+        return new MoveCoordinatesIterator($this);
+    }
+
 
 }

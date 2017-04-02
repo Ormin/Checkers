@@ -4,12 +4,13 @@ namespace Apitis\Checkers\Domain\Contexts\Game\Entity;
 
 
 use Apitis\Checkers\Domain\Contexts\Creation\Event\MovePerformed;
+use Apitis\Checkers\Domain\Contexts\Game\Collection\CapturedPieces;
 use Apitis\Checkers\Domain\Contexts\Game\Collection\FieldMatrix;
 use Apitis\Checkers\Domain\Contexts\Game\Collection\Exception\NoPieceOnFieldException;
 use Apitis\Checkers\Domain\Contexts\Game\Policy\Rules;
+use Apitis\Checkers\Domain\Contexts\Game\ValueObject\CapturedPiece;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Field;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Move;
-use Apitis\Checkers\Domain\Contexts\Game\ValueObject\MoveType;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Piece;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Exception\MisalignedCoordinatesException;
 use Apitis\Checkers\Domain\Shared\Exception\FieldDoesNotExistException;
@@ -63,12 +64,10 @@ class Board extends SimpleEventSourcedEntity
      */
     public function tryToMove(GameId $gameId, Move $move)
     {
-        $color = $this->fields->getField($move->getFrom())->getPiecesColor();
-
-        $moveType = $this->determineMoveType($move, $color);
+        $capturedPieces = $this->checkMoveLegality($move);
 
         if($this->rules->isCapturingMandatory() &&
-           $moveType == MoveType::NORMAL() &&
+           !$capturedPieces->moreThanZero() &&
            $this->hasCaptureMove($move->getFrom()))
         {
             throw new IllegalMoveException("Piece making a normal move while a capture one is available");
@@ -76,36 +75,19 @@ class Board extends SimpleEventSourcedEntity
 
         $this->apply(new MovePerformed($gameId, $move));
 
-        return ($moveType == MoveType::CAPTURE());
+        return ($capturedPieces->moreThanZero());
     }
 
     private function hasCaptureMove(Coordinates $coordinates)
     {
-        $field = $this->fields->getField($coordinates);
-        $color = $field->getPiecesColor();
-        $jumpLength = ($field->isPieceAKing()) ? $this->rules->getBoardLength() : 1;
         foreach(Direction::members() as $direction) {
-            $enemyPieceCoordinates = $this->findFirstEnemyPiece(
+
+            if($this->hasCapturingMove(
                 $coordinates,
-                $direction,
-                $color,
-                $jumpLength
-            );
-
-            if($enemyPieceCoordinates)
+                $direction
+            ))
             {
-                $landingFieldCoordinates = $coordinates->after($enemyPieceCoordinates);
-
-                /**
-                 * If field directly after the enemy piece is free, we can land here and capture move is possible
-                 * If field is not available though, it means that we've got at least two pieces lined up and jump is
-                 * not possible
-                 */
-                if(!$this->fields->hasPiece($landingFieldCoordinates))
-                {
-                    return true;
-                }
-
+                return true;
             }
 
         }
@@ -114,62 +96,101 @@ class Board extends SimpleEventSourcedEntity
     }
 
     /**
-     * Determine, if it's a legal normal move or a capture move.
+     * Check move legality and return pieces captured by the move
      * @param Move $move
-     * @param Color $color
-     * @return MoveType
+     * @return CapturedPieces
      * @throws IllegalMoveException Move is neither a legal normal move or a capture move
      * @throws NoPieceOnFieldException
      * @throws FieldDoesNotExistException
      */
-    private function determineMoveType(Move $move, Color $color)
+    private function checkMoveLegality(Move $move)
     {
+        $startField = $this->fields->getField($move->getFrom());
+
         if($this->fields->getField($move->getTo())->hasPiece())
         {
             throw new IllegalMoveException("Occupied field - cannot move here.");
         }
 
-        if($this->fields->getField($move->getFrom())->isPieceAKing()) {
+        $capturedPieces = $this->findCapturedPieces($move);
 
-            $enemyPieceCoordinate = $this->findFirstEnemyPieceOnWayOf($move, $color, $this->rules->getBoardLength());
+        $maxJumpLength = ($startField->isPieceAKing()) ? $this->rules->getBoardLength() : (
+            $capturedPieces->moreThanZero() ? 2 : 1
+        );
 
-            if($this->rules->doKingsStopOnFieldAfterCapture()) {
-
-                if($enemyPieceCoordinate) {
-
-                    if ($move->getFrom()->after($enemyPieceCoordinate) != $move->getTo()) {
+        if($move->getDistance() > $maxJumpLength)
+        {
+            throw new IllegalMoveException("Occupied field - cannot move here.");
+        }
+        
+        if($startField->isPieceAKing()) {
+            if($capturedPieces->moreThanZero()) {
+                if($this->rules->doKingsStopOnFieldAfterCapture()) {
+                    $lastCapturedPiece = $capturedPieces->getLastPiece();
+                    if ($move->getFrom()->after($lastCapturedPiece) != $move->getTo()) {
                         throw new IllegalMoveException("King has stop on field directly after captured piece.");
                     }
                 }
-
             }
+        }
 
-            if($enemyPieceCoordinate) {
-                return MoveType::CAPTURE();
-            }
+        return $capturedPieces;
+    }
 
-            return MoveType::NORMAL();
-        } else {
+    /**
+     * Check if under a given move we're capturing any pieces
+     * @param Move $move
+     * @throws IllegalMoveException If move is not legal and hence will not capture anything
+     * @return CapturedPieces Captured pieces
+     */
+    private function findCapturedPieces(Move $move)
+    {
+        $field = $this->fields->getField($move->getFrom());
+        $color = $field->getPiecesColor();
 
-            $enemyPieceCoordinate = $this->findFirstEnemyPieceOnWayOf($move, $color, 1);
+        $it = $move->getIterator();
+        $it->next(); //Skip our starting point
 
-            if($move->getDistance() == 1 && !$enemyPieceCoordinate)
+        $pieces = [];
+
+        while($it->valid())
+        {
+            $currentCoordinates = $it->current();
+
+            if($this->fields->hasPiece($currentCoordinates))
             {
-                if(!$this->isMoveForward($move, $color))
+
+                $jumpedOverPieceColor = $this->fields->getField($currentCoordinates)->getPiecesColor();
+                if($color->getOpposedColor() == $jumpedOverPieceColor)
                 {
-                    throw new IllegalMoveException("Move cannot be backwards when you're not a king and not capturing");
+                    $it->next();
+                    if(!$it->valid())
+                    {
+                        break;
+                    }
+
+                    $nextCoordinates = $it->current();
+                    if($this->fields->getField($nextCoordinates)->hasPiece())
+                    {
+                        throw new IllegalMoveException("Cannot jump over more than one piece");
+                    }
+                    
+                    $pieces[] = new CapturedPiece($currentCoordinates, $jumpedOverPieceColor);
+                }
+                else
+                {
+                    throw new IllegalMoveException("Cannot move over same color's piece");
                 }
 
-                return MoveType::NORMAL();
-            } elseif($move->getDistance() == 2 && $enemyPieceCoordinate)
-            {
-                return MoveType::CAPTURE();
-            } else {
-                throw new IllegalMoveException("Cannot move more than one field");
             }
 
+            $it->next();
         }
+
+        return new CapturedPieces($pieces);
     }
+
+
 
     private function findFirstEnemyPieceOnWayOf(Move $move, Color $color, $length)
     {
