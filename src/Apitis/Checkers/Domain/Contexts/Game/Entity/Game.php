@@ -3,7 +3,7 @@
 namespace Apitis\Checkers\Domain\Contexts\Game\Entity;
 
 
-use Apitis\Checkers\Domain\Contexts\Creation\Event\TurnEnded;
+use Apitis\Checkers\Domain\Contexts\Game\Event\TurnEnded;
 use Apitis\Checkers\Domain\Contexts\Game\Policy\Rules;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Move;
 use Apitis\Checkers\Domain\Shared\Exception\IllegalStateException;
