@@ -58,6 +58,15 @@ class Field
         return $this->piece->getColor();
     }
 
+    public function getPiecesJumpRange()
+    {
+        if(!$this->hasPiece()) {
+            throw new NoPieceOnFieldException();
+        }
+
+        return $this->piece->getPiecesJumpRange();
+    }
+
     public function isPieceAKing()
     {
         if(!$this->hasPiece()) {

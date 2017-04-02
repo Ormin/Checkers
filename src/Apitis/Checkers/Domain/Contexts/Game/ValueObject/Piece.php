@@ -73,4 +73,13 @@ class Piece
         return $this->color;
     }
 
+    /**
+     * Get pieces jump range.
+     * @return int
+     */
+    public function getPiecesJumpRange()
+    {
+        return ($this->isKing) ? PHP_INT_MAX : 2;
+    }
+
 }

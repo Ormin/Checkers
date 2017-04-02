@@ -12,7 +12,7 @@ use Apitis\Checkers\Domain\Contexts\Game\ValueObject\CapturedPiece;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Field;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Move;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Piece;
-use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Exception\MisalignedCoordinatesException;
+use Apitis\Checkers\Domain\Shared\ValueObject\CartesianCoordinates;
 use Apitis\Checkers\Domain\Shared\Exception\FieldDoesNotExistException;
 use Apitis\Checkers\Domain\Shared\Exception\IllegalMoveException;
 use Apitis\Checkers\Domain\Shared\Exception\IllegalStateException;
@@ -73,58 +73,103 @@ class Board extends SimpleEventSourcedEntity
             throw new IllegalMoveException("Piece making a normal move while a capture one is available");
         }
 
-        $this->apply(new MovePerformed($gameId, $move));
+        $this->apply(new MovePerformed($gameId, $move, $capturedPieces));
 
-        return ($capturedPieces->moreThanZero());
+        return $capturedPieces;
     }
 
     private function hasCaptureMove(Coordinates $coordinates)
     {
         foreach(Direction::members() as $direction) {
-
-            if($this->hasCapturingMove(
-                $coordinates,
-                $direction
-            ))
-            {
+            if($this->hasCapturingMoveInDirection($coordinates,$direction)) {
                 return true;
             }
-
         }
 
         return false;
+    }
+
+    private function hasCapturingMoveInDirection(Coordinates $coordinates, Direction $direction)
+    {
+        $field = $this->fields->getField($coordinates);
+        if($field->isPieceAKing())
+        {
+            $maxRangeCoordinates = $this->getCorner($direction);
+        } else {
+            $maxRangeCoordinates = $coordinates;
+            for($i = 0; $i < $field->getPiecesJumpRange(); ++$i) {
+                $maxRangeCoordinates = $maxRangeCoordinates->next($direction);
+            }
+        }
+
+        try {
+            $capturedPieces = $this->findCapturedPieces(new Move($coordinates, $maxRangeCoordinates));
+        } catch (IllegalMoveException $e) {
+            return false;
+        }
+
+        return ($capturedPieces->current() !== null);
+
+    }
+
+    private function getCorner(Direction $direction)
+    {
+        switch($direction) {
+            case Direction::SOUTHWEST(): {
+                return new CartesianCoordinates(1,1);
+            }
+            case Direction::SOUTHEAST(): {
+                return new CartesianCoordinates($this->rules->getBoardLength(),1);
+            }
+            case Direction::NORTHWEST(): {
+                return new CartesianCoordinates(1,$this->rules->getBoardLength());
+            }
+            case Direction::NORTHEAST(): {
+                return new CartesianCoordinates($this->rules->getBoardLength(),$this->rules->getBoardLength());
+            }
+        }
+
+        throw new FieldDoesNotExistException;
     }
 
     /**
      * Check move legality and return pieces captured by the move
      * @param Move $move
      * @return CapturedPieces
-     * @throws IllegalMoveException Move is neither a legal normal move or a capture move
+     * @throws IllegalMoveException
      * @throws NoPieceOnFieldException
      * @throws FieldDoesNotExistException
      */
     private function checkMoveLegality(Move $move)
     {
+
+        if(!$this->coordinatesOnBoard($move->getFrom()) ||
+           !$this->coordinatesOnBoard($move->getTo()))
+        {
+            throw new IllegalMoveException("Move is outside board range");
+        }
+
         $startField = $this->fields->getField($move->getFrom());
+        $endField = $this->fields->getField($move->getTo());
 
-        if($this->fields->getField($move->getTo())->hasPiece())
+        if($endField->hasPiece())
         {
             throw new IllegalMoveException("Occupied field - cannot move here.");
         }
 
-        $capturedPieces = $this->findCapturedPieces($move);
 
-        $maxJumpLength = ($startField->isPieceAKing()) ? $this->rules->getBoardLength() : (
-            $capturedPieces->moreThanZero() ? 2 : 1
-        );
-
-        if($move->getDistance() > $maxJumpLength)
+        $pieces = [];
+        foreach($this->findCapturedPieces($move) as $piece)
         {
-            throw new IllegalMoveException("Occupied field - cannot move here.");
+            $pieces[] = $piece;
         }
-        
-        if($startField->isPieceAKing()) {
-            if($capturedPieces->moreThanZero()) {
+
+        $capturedPieces = new CapturedPieces($pieces);
+
+        $pieceIsAKing = $startField->isPieceAKing();
+
+        if($capturedPieces->moreThanZero() || $pieceIsAKing) {
+            if($pieceIsAKing) {
                 if($this->rules->doKingsStopOnFieldAfterCapture()) {
                     $lastCapturedPiece = $capturedPieces->getLastPiece();
                     if ($move->getFrom()->after($lastCapturedPiece) != $move->getTo()) {
@@ -132,6 +177,19 @@ class Board extends SimpleEventSourcedEntity
                     }
                 }
             }
+
+            //Move distance is the jump distance
+            $maxMoveDistance = $startField->getPiecesJumpRange();
+        } else {
+            if(!$this->isMoveForward($move)) {
+                throw new IllegalMoveException("Non-capturing normal piece move has to be forward.");
+            }
+            $maxMoveDistance = 1;
+        }
+
+        if($move->getDistance() > $maxMoveDistance)
+        {
+            throw new IllegalMoveException("Occupied field - cannot move here.");
         }
 
         return $capturedPieces;
@@ -141,7 +199,7 @@ class Board extends SimpleEventSourcedEntity
      * Check if under a given move we're capturing any pieces
      * @param Move $move
      * @throws IllegalMoveException If move is not legal and hence will not capture anything
-     * @return CapturedPieces Captured pieces
+     * @return \Generator Captured pieces
      */
     private function findCapturedPieces(Move $move)
     {
@@ -150,8 +208,6 @@ class Board extends SimpleEventSourcedEntity
 
         $it = $move->getIterator();
         $it->next(); //Skip our starting point
-
-        $pieces = [];
 
         while($it->valid())
         {
@@ -175,7 +231,7 @@ class Board extends SimpleEventSourcedEntity
                         throw new IllegalMoveException("Cannot jump over more than one piece");
                     }
                     
-                    $pieces[] = new CapturedPiece($currentCoordinates, $jumpedOverPieceColor);
+                    yield new CapturedPiece($currentCoordinates, $jumpedOverPieceColor);
                 }
                 else
                 {
@@ -187,53 +243,8 @@ class Board extends SimpleEventSourcedEntity
             $it->next();
         }
 
-        return new CapturedPieces($pieces);
     }
 
-
-
-    private function findFirstEnemyPieceOnWayOf(Move $move, Color $color, $length)
-    {
-        $direction = $move->getFrom()->direction($move->getTo());
-        return $this->findFirstEnemyPiece($move->getFrom(), $direction, $color, $length);
-    }
-
-    /**
-     * Find the first enemy piece from given coordinates in target direction
-     * @param Coordinates $coordinates Coordinates we check from
-     * @param Direction $direction Target direction
-     * @param Color $color
-     * @param $length
-     * @return Coordinates|null
-     * @throws FieldDoesNotExistException
-     * @throws NoPieceOnFieldException
-     * @throws MisalignedCoordinatesException
-     */
-    private function findFirstEnemyPiece(Coordinates $coordinates, Direction $direction, Color $color, $length)
-    {
-        $currentCoordinates = $coordinates->next($direction);
-
-        $k = 0;
-
-        while($this->coordinatesOnBoard($currentCoordinates) && $k < $length)
-        {
-            if($this->fields->hasPiece($currentCoordinates))
-            {
-                if($this->fields->getField($currentCoordinates)->getPiecesColor() == $color->getOpposedColor())
-                {
-                    return $currentCoordinates;
-                } else {
-                    return null; //It's not an opposing piece
-                }
-            }
-
-            $currentCoordinates = $currentCoordinates->next($direction);
-            ++$k;
-        }
-
-        return null;
-
-    }
 
     private function coordinatesOnBoard(Coordinates $coordinates)
     {
@@ -241,8 +252,9 @@ class Board extends SimpleEventSourcedEntity
             $coordinates->getY() > 0 && $coordinates->getY() <= $this->rules->getBoardLength());
     }
 
-    private function isMoveForward(Move $move, Color $color)
+    private function isMoveForward(Move $move)
     {
+        $color = $this->fields->getField($move->getFrom())->getPiecesColor();
         switch($color)
         {
             case Color::WHITE(): {
@@ -329,7 +341,7 @@ class Board extends SimpleEventSourcedEntity
 
         for(; $startingX <= $rules->getBoardLength(); $startingX = $startingX + 2) {
             $field = new Field();
-            $fields->addField(new Coordinates($startingX, $rowNumber), $field);
+            $fields->addField(new CartesianCoordinates($startingX, $rowNumber), $field);
             $piece = new Piece($color);
             $field->putDown($piece);
         }

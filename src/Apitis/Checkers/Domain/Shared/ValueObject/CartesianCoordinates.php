@@ -2,9 +2,8 @@
 
 namespace Apitis\Checkers\Domain\Shared\ValueObject;
 
-
-use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Exception\MisalignedCoordinatesException;
-use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Exception\NoInBetweenCoordinatesException;
+use Apitis\Checkers\Domain\Shared\ValueObject\Exception\MisalignedCoordinatesException;
+use Apitis\Checkers\Domain\Shared\ValueObject\Exception\NoInBetweenCoordinatesException;
 
 class CartesianCoordinates implements Coordinates
 {

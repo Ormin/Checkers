@@ -79,9 +79,9 @@ class Game extends EventSourcedAggregateRoot
 
     public function performMove(Move $move)
     {
-        $canDoMoreMoves = $this->currentPlayer->move($this->gameId, $this->board, $move);
+        $capturedPieces = $this->currentPlayer->move($this->gameId, $this->board, $move);
 
-        if(!$canDoMoreMoves) {
+        if(!$capturedPieces->moreThanZero()) {
             $this->apply(new TurnEnded($this->gameId, $this->currentPlayer));
         }
     }

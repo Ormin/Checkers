@@ -5,12 +5,12 @@
  * Time: 6:09 PM
  */
 
-namespace Apitis\Checkers\Domain\Contexts\Game\ValueObject;
+namespace Apitis\Checkers\Domain\Shared\ValueObject\Iterator;
 
 use Apitis\Checkers\Domain\Shared\ValueObject\Coordinates;
 use Apitis\Checkers\Domain\Shared\ValueObject\Direction;
 
-class MoveCoordinatesIterator implements \Iterator
+class CoordinatesIterator implements \Iterator
 {
     /**
      * @var Coordinates
@@ -36,11 +36,13 @@ class MoveCoordinatesIterator implements \Iterator
 
     private $isFinished = false;
 
-    public function __construct(Move $move)
+    public function __construct(Coordinates $start, Coordinates $end)
     {
-        $this->current = $this->start = $move->getFrom();
-        $this->end = $move->getTo();
-        $this->direction = $move->direction();
+        $direction = $start->direction($end);
+
+        $this->current = $this->start = $start;
+        $this->end = $end;
+        $this->direction = $direction;
     }
 
     public function current()

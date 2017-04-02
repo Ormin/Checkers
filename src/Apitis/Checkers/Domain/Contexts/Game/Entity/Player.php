@@ -3,6 +3,7 @@
 namespace Apitis\Checkers\Domain\Contexts\Game\Entity;
 
 
+use Apitis\Checkers\Domain\Contexts\Game\Collection\CapturedPieces;
 use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Move;
 use Apitis\Checkers\Domain\Shared\Exception\NotPlayersPieceException;
 use Apitis\Checkers\Domain\Shared\Identifiers\GameId;
@@ -33,6 +34,14 @@ class Player extends EventSourcedAggregateRoot
         $this->playingAsColor = $playingAsColor;
     }
 
+    /**
+     * @param GameId $gameId
+     * @param Board $board
+     * @param Move $move
+     * @return CapturedPieces
+     * @throws NotPlayersPieceException
+     * @throws \Apitis\Checkers\Domain\Shared\Exception\IllegalMoveException
+     */
     public function move(GameId $gameId, Board $board, Move $move)
     {
         if($this->playingAsColor != $board->getPiecesColor($move->getFrom())) {

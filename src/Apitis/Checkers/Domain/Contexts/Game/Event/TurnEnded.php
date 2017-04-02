@@ -1,6 +1,6 @@
 <?php
 
-namespace Apitis\Checkers\Domain\Contexts\Creation\Event;
+namespace Apitis\Checkers\Domain\Contexts\Game\Event;
 
 
 use Apitis\Checkers\Domain\Contexts\Game\Entity\Player;

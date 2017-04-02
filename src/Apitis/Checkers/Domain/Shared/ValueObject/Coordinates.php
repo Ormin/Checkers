@@ -2,9 +2,8 @@
 
 namespace Apitis\Checkers\Domain\Shared\ValueObject;
 
-
-use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Exception\MisalignedCoordinatesException;
-use Apitis\Checkers\Domain\Contexts\Game\ValueObject\Exception\NoInBetweenCoordinatesException;
+use Apitis\Checkers\Domain\Shared\ValueObject\Exception\MisalignedCoordinatesException;
+use Apitis\Checkers\Domain\Shared\ValueObject\Exception\NoInBetweenCoordinatesException;
 
 interface Coordinates
 {
@@ -35,6 +34,10 @@ interface Coordinates
      */
     public function after(Coordinates $coordinates);
 
+    /**
+     * @param Direction $direction
+     * @return Coordinates
+     */
     public function next(Direction $direction);
 
     public function direction(Coordinates $coordinates);
@@ -46,5 +49,5 @@ interface Coordinates
     public function getUpwardsAxis();
 
     public function getDownwardsAxis();
-    
+
 }
