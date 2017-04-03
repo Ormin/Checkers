@@ -25,7 +25,9 @@ class CartesianCoordinates implements Coordinates
          */
 
         if(($x + $y) / 2 != 0) {
-            throw new \InvalidArgumentException("Invalid coordinates - x ".$x." y ".$y);
+            throw new \InvalidArgumentException(
+                "Invalid coordinates - x ".$x." y ".$y
+            );
         }
 
         $this->x = $x;
