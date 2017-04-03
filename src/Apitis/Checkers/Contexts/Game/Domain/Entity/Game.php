@@ -14,33 +14,14 @@ use Broadway\EventSourcing\EventSourcedAggregateRoot;
 class Game extends EventSourcedAggregateRoot
 {
 
-    /**
-     * @Column(type="integer", length=32, unique=true, nullable=false)
-     */
     private $gameId;
 
-    /**
-     * @OneToOne(targetEntity="Player")
-     * @JoinColumn(name="first_player", referencedColumnName="id")
-     */
     private $firstPlayer;
 
-    /**
-     * @OneToOne(targetEntity="Customer")
-     * @JoinColumn(name="second_player", referencedColumnName="id")
-     */
     private $secondPlayer;
 
-    /**
-     * @OneToOne(targetEntity="Customer")
-     * @JoinColumn(name="current_player", referencedColumnName="id")
-     */
     private $currentPlayer;
 
-    /**
-     * @OneToOne(targetEntity="Board")
-     * @JoinColumn(name="board_id", referencedColumnName="id")
-     */
     private $board;
 
     /**
